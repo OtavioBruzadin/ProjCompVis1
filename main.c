@@ -31,6 +31,8 @@ static bool is_supported_ext(const char* ext) {
 }
 
 SDL_Surface* convertToRGBA(SDL_Surface* surface) {
+    SDL_Log("Iniciando Conversão para RGBA...");
+
     SDL_Surface* converted = SDL_ConvertSurface(surface, SDL_PIXELFORMAT_RGBA32); //Transformarmos em RGBA32 porque é o formato que conhecemos
     if (!converted) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
@@ -41,6 +43,8 @@ SDL_Surface* convertToRGBA(SDL_Surface* surface) {
         SDL_DestroySurface(surface);
         return NULL;
     }
+    SDL_Log("Conversão para RGBA concluida");
+
     return converted;
 }
 
@@ -79,44 +83,49 @@ static bool isGreyScale(SDL_Surface* surface) {
 }
 
 SDL_Surface* convertToGrey(SDL_Surface* surface) {
-    if (isGreyScale(surface)) {
-        SDL_Log("Imagem já está em escala de cinza; pulando conversão.");
+    if (!surface) {
+        SDL_Log("convertToGrey: superfície nula recebida.");
         return NULL;
-    } else {
-        if (!SDL_LockSurface(surface)) { //Precisa bloquear para podermos manipular
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-                                     "Falha ao bloquear superfície",
-                                     SDL_GetError(),
-                                     NULL);
-            SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
-            SDL_DestroySurface(surface);
-            return NULL;
-        }
-
-        SDL_Log("Iniciando Conversão para escala de cinza...");
-
-        const int largura_px = surface->w;
-        const int altura_px  = surface->h;
-        Uint32* pixels = surface->pixels;
-        const int pitchPixels = surface->pitch / 4;
-        const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
-        const SDL_Palette *palette = SDL_GetSurfacePalette(surface);
-
-        for (int y = 0; y < altura_px; ++y) {
-            for (int x = 0; x < largura_px; ++x) {
-                const int idx = y * pitchPixels + x;
-                Uint8 r, g, b, a;
-                SDL_GetRGBA(pixels[idx], format, palette, &r, &g, &b, &a);
-                Uint8 gray = (Uint8)(0.2125f * r + 0.7154f * g + 0.0721f * b);
-                pixels[idx] = SDL_MapRGBA(format, palette, gray, gray, gray, a);
-            }
-        }
-
-        SDL_UnlockSurface(surface);
-        SDL_Log("Conversão concluida");
-        return surface;
     }
+
+    if (isGreyScale(surface)) {
+        SDL_Log("Imagem já está em escala de cinza; pulando conversão e mantendo superfície.");
+        return surface; // NÃO retorna NULL — mantém a superfície para uso posterior
+    }
+
+    if (!SDL_LockSurface(surface)) { // Precisa bloquear para podermos manipular
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 "Falha ao bloquear superfície",
+                                 SDL_GetError(),
+                                 NULL);
+        SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
+        return NULL;
+    }
+
+    SDL_Log("Iniciando Conversão para escala de cinza...");
+
+    const int largura_px = surface->w;
+    const int altura_px  = surface->h;
+    Uint32* pixels = (Uint32*)surface->pixels;
+    const int pitchPixels = surface->pitch / 4;
+    const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
+    const SDL_Palette *palette = SDL_GetSurfacePalette(surface);
+
+    for (int y = 0; y < altura_px; ++y) {
+        for (int x = 0; x < largura_px; ++x) {
+            const int idx = y * pitchPixels + x;
+            Uint8 r, g, b, a;
+            SDL_GetRGBA(pixels[idx], format, palette, &r, &g, &b, &a);
+            Uint8 gray = (Uint8)(0.2125f * r + 0.7154f * g + 0.0721f * b);
+            pixels[idx] = SDL_MapRGBA(format, palette, gray, gray, gray, a);
+        }
+    }
+
+    SDL_UnlockSurface(surface);
+    SDL_Log("Conversão para escala de cinza concluída");
+    return surface;
 }
+
 
 void shutdown(void) {
     SDL_Log("Shutdown...");

@@ -391,7 +391,7 @@ int main(int argc, char *argv[]){
     }
 
     // Init TTF
-    if (TTF_Init() == -1) {
+    if (!TTF_Init()) {
         SDL_Log("Erro ao inicializar SDL_ttf: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }

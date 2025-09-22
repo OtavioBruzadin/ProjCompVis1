@@ -429,7 +429,6 @@ int main(int argc, char *argv[]){
     SDL_CreateWindowAndRenderer(WINDOW_TITLE, largura, altura, 0,&window, &renderer);
     if (!window) {
         SDL_Log("Erro ao criar a janela: %s", SDL_GetError());
-        SDL_DestroyWindow(window);
         SDL_DestroySurface(surface);
         return SDL_APP_FAILURE;
     }

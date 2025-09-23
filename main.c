@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-// cria windows e renderers
+// cria janelas e renderers
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 
@@ -22,6 +22,16 @@ struct ImageData{
     SDL_Texture* deviationTexture;
     SDL_FRect    deviationRect;
 };
+
+// tipo de dado (botão)
+typedef struct {
+    SDL_FRect rect;
+    bool hovered;
+    bool pressed;
+} Button;
+
+// variável para ter a noção de qual imagem está sendo mostrada na janela principal
+bool showingEqualized = false;
 
 static const char* get_extension(const char* path) {
     const char* dot = strrchr(path, '.');
@@ -140,6 +150,16 @@ SDL_Surface* convertToGrey(SDL_Surface* surface) {
 
 void obtainIntesityFrequency (SDL_Surface* surface, int* intensityFrequency){
     
+    // bloquear superfície para manipulação dos pixels
+    if (!SDL_LockSurface(surface)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 "Falha ao bloquear superfície",
+                                 SDL_GetError(),
+                                 NULL);
+        SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
+        return;
+    }
+
     // inicia vetor de frequência com zeros
     for (int i = 0; i < 256; ++i) {
         intensityFrequency[i] = 0;
@@ -168,21 +188,15 @@ void obtainIntesityFrequency (SDL_Surface* surface, int* intensityFrequency){
             intensityFrequency[r]++;
         }
     }
+
+    // desbloquear superfície
+    SDL_UnlockSurface(surface);
 }
 
 void createHistogram(SDL_Surface* surface) {
 
     if (!surface) {
         SDL_Log("Erro! Superficie Invalida.");
-        return;
-    }
-
-    if (!SDL_LockSurface(surface)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-                                 "Falha ao bloquear superfície",
-                                 SDL_GetError(),
-                                 NULL);
-        SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
         return;
     }
 
@@ -204,14 +218,27 @@ void createHistogram(SDL_Surface* surface) {
     }
 
     // cria retângulos para formar o histograma
-    SDL_SetRenderDrawColor(renderer2, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer2, 255, 255, 255, 255);
+
+    // desing da janela secundária
+    SDL_FRect rect1 = { .x = 2.0f, .y = 2.0f, .w = (420.0f-4.0f), .h = (500.0f-4.0f)};
+    SDL_RenderRect(renderer2, &rect1);
+
+    SDL_FRect rect2 = { .x = 4.0f, .y = 4.0f, .w = (420.0f-8.0f), .h = (500.0f-8.0f)};
+    SDL_RenderRect(renderer2, &rect2);
+
+    SDL_FRect rect3 = { .x = 6.0f, .y = 6.0f, .w = (420.0f-12.0f), .h = (500.0f-12.0f)};
+    SDL_RenderRect(renderer2, &rect3);
+
+    SDL_FRect rect4 = { .x = 8.0f, .y = 8.0f, .w = (420.0f-16.0f), .h = (500.0f-16.0f)};
+    SDL_RenderRect(renderer2, &rect4);
 
     SDL_FRect rect = { .x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f };
 
     rect.x = 10.0f;
     rect.y = 10.0f;
-    rect.w = 500 - 20.0f;
-    rect.h = 500 - 20.0f;
+    rect.w = 420.0f - 20.0f;
+    rect.h = 500.0f - 20.0f;
 
     SDL_RenderRect(renderer2, &rect);
 
@@ -222,7 +249,7 @@ void createHistogram(SDL_Surface* surface) {
 
     SDL_RenderRect(renderer2, &rect);
 
-    SDL_SetRenderDrawColor(renderer2, 50, 50, 50, 255);
+    SDL_SetRenderDrawColor(renderer2, 255, 255, 255, 255);
 
     // desenha as linhas de frequência para cada intensidade da escala de cinza
     // obs: leva em conta a maior frequência como limite máximo
@@ -235,10 +262,10 @@ void createHistogram(SDL_Surface* surface) {
     }
 
     for (int i = 0; i <= 255; i++){
-        SDL_RenderLine(renderer2, (80.0f + (i+1)), (40.0f + 257.0f), (80.0f + (i+1)), ((40.0f + 257.0f)-((normalizedIntensity[i]/(maxFrequency))*257.0f)));
+        if (intensityFrequency[i] != 0){ // se não existir pixel com essa intensidade (não irá desenhar nenhum ponto)
+            SDL_RenderLine(renderer2, (80.0f + (i+1)), (41.0f + 255.0f), (80.0f + (i+1)), ((41.0f + 255.0f)-((normalizedIntensity[i]/(maxFrequency))*256.0f)));
+        }
     }
-
-    SDL_UnlockSurface(surface);
 }
 
 char* obtainImageClass(SDL_Surface* surface, int* intensityFrequency) {
@@ -295,7 +322,7 @@ void analyzeImageInformation(SDL_Surface* surface, ImageData* data, TTF_Font* fo
 
     int intensityFrequency[256];
 
-    SDL_Color textColor = { 0, 0, 0, 255 };
+    SDL_Color textColor = { 255, 255, 255, 255 };
 
     // obtém lista com a quantidade de pixels para cada escala de cinza
     obtainIntesityFrequency(surface, intensityFrequency);
@@ -369,6 +396,128 @@ void destroyData(ImageData* data){
     SDL_DestroyTexture(data->deviationTexture);
 }
 
+SDL_Surface* equalizeHistogram(SDL_Surface* graySurface) {
+
+    if (!graySurface) {
+        SDL_Log("Não há superfície da imagem para equalização!");
+        return NULL;
+    }
+
+    int intensityFrequency[256] = {0};
+    obtainIntesityFrequency(graySurface, intensityFrequency);
+
+    // calcula o número de pixels da imagem
+    int width = graySurface->w;
+    int height = graySurface->h;
+    int totalPixels = width * height;
+    if (totalPixels == 0) return NULL;
+
+    // vetores pare armazenar probabilidade de ocorrência (pr) e distribuição acumulada (cdf)
+    float pr[256];
+    float cdf[256];
+
+    // normalização do histograma
+    for (int i = 0; i < 256; i++)
+        pr[i] = (float)intensityFrequency[i] / totalPixels;
+
+    // calcular cdf, distribuição acumulada dos níveis de intensidade
+    cdf[0] = pr[0];
+    for (int i = 1; i < 256; i++)
+        cdf[i] = cdf[i - 1] + pr[i];
+
+    // mapear a intensidade de cada nível da escala de cinza para uma intensidade da imagem de saída
+    Uint8 mapping[256];
+    for (int i = 0; i < 256; i++)
+        // pega o valor acumulado das proabilidades de intensidades até a intensidade "i" e 
+        // multiplica pelo número de níveis de intensidade da escala de cinza - 1
+        // obs: a adição do valor 0.5f faz com que o arredondamento seja correto, visto que
+        // ao transforma um float em um Uint8 o programa trunca o valor decimal
+        mapping[i] = (Uint8)(255 * cdf[i] + 0.5f);
+ 
+    SDL_Surface* newSurface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
+    if (!newSurface) {
+        SDL_Log("Erro ao criar superfície equalizada: %s", SDL_GetError());
+        return NULL;
+    }
+
+    // Travar superfícies para manipulação dos pixels
+    // Tenta dar "lock" na superfície em escala de cinza
+    if (!SDL_LockSurface(graySurface)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 "Falha ao bloquear superfície em escala de cinza",
+                                 SDL_GetError(),
+                                 NULL);
+        SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
+        return NULL;
+    }
+
+    // Tenta dar "lock" na superfície de saída
+    if (!SDL_LockSurface(newSurface)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                 "Falha ao bloquear superfície de saída criada",
+                                 SDL_GetError(),
+                                 NULL);
+        SDL_Log("SDL_LockSurface falhou: %s", SDL_GetError());
+        SDL_UnlockSurface(graySurface); // Destrava primeira superfície lockada
+        return NULL;
+    }
+
+    // ponteiros brutos e pitches (em pixels), que é o comprimento total de uma linha de pixels guardada na memória
+    Uint8* srcBytes = (Uint8*)graySurface->pixels;
+    Uint8* dstBytes = (Uint8*)newSurface->pixels;
+    int srcPitchBytes = graySurface->pitch;
+    int dstPitchBytes = newSurface->pitch;
+    int srcPitchPixels = srcPitchBytes / 4;
+    int dstPitchPixels = dstPitchBytes / 4;
+
+    // formatos para leitura e escrita
+    const SDL_PixelFormatDetails *srcFormat = SDL_GetPixelFormatDetails(graySurface->format);
+    const SDL_Palette *srcPalette = SDL_GetSurfacePalette(graySurface);
+    const SDL_PixelFormatDetails *dstFormat = SDL_GetPixelFormatDetails(newSurface->format);
+    const SDL_Palette *dstPalette = SDL_GetSurfacePalette(newSurface);
+
+    // iterar por linhas e colunas respeitando pitch
+    for (int y = 0; y < height; ++y) {
+        Uint32* srcRow = (Uint32*)(srcBytes + y * srcPitchBytes);
+        Uint32* dstRow = (Uint32*)(dstBytes + y * dstPitchBytes);
+        for (int x = 0; x < width; ++x) {
+            Uint8 r, g, b, a;
+            // mapeia os pixels de entrada para saída com base no vetor calculado anteriormente
+            SDL_GetRGBA(srcRow[x], srcFormat, srcPalette, &r, &g, &b, &a);
+            Uint8 newVal = mapping[r];
+            dstRow[x] = SDL_MapRGBA(dstFormat, dstPalette, newVal, newVal, newVal, a);
+        }
+    }
+
+    // destrava surfaces
+    SDL_UnlockSurface(graySurface);
+    SDL_UnlockSurface(newSurface);
+
+    return newSurface;
+}
+
+void drawButton(Button* btn, const char* label, TTF_Font* font) {
+
+    // definir um tipo de cor para cada caso (pressionado, "hover" e neutro) ao renderizar o botão na janela
+    if (btn->pressed) SDL_SetRenderDrawColor(renderer2, 0, 0, 128, 255);
+    else if (btn->hovered) SDL_SetRenderDrawColor(renderer2, 100, 149, 237, 255);
+    else SDL_SetRenderDrawColor(renderer2, 0, 0, 255, 255);
+
+    SDL_RenderFillRect(renderer2, &btn->rect);
+
+    SDL_Color textColor = {255, 255, 255, 255};
+    SDL_Surface* textSurf = TTF_RenderText_Blended(font, label, 0, textColor);
+    SDL_Texture* textTex = SDL_CreateTextureFromSurface(renderer2, textSurf);
+    SDL_FRect textRect = {
+        btn->rect.x + (btn->rect.w - textSurf->w) / 2,
+        btn->rect.y + (btn->rect.h - textSurf->h) / 2,
+        textSurf->w, textSurf->h
+    };
+    SDL_RenderTexture(renderer2, textTex, NULL, &textRect);
+    SDL_DestroySurface(textSurf);
+    SDL_DestroyTexture(textTex);
+}
+
 void shutdown(void) {
     SDL_Log("Shutdown...");
     SDL_Quit();
@@ -422,6 +571,7 @@ int main(int argc, char *argv[]){
 
     SDL_Surface* converted = convertToRGBA(surface);
     surface = convertToGrey(converted);
+    SDL_Surface* surfaceEqualized = equalizeHistogram(surface);
 
     largura = surface->w;
     altura = surface->h;
@@ -448,7 +598,7 @@ int main(int argc, char *argv[]){
         return SDL_APP_FAILURE;
     }
 
-    SDL_CreateWindowAndRenderer(WINDOW_TITLE2, 500, 500, 0,&window2, &renderer2);
+    SDL_CreateWindowAndRenderer(WINDOW_TITLE2, 420, 500, 0,&window2, &renderer2);
     if (!window2) {
         SDL_Log("Erro ao criar a janela: %s", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -479,7 +629,7 @@ int main(int argc, char *argv[]){
         return SDL_APP_FAILURE;
     }
 
-    SDL_Color textColor = { 0, 0, 0, 255 };
+    SDL_Color textColor = { 255, 255, 255, 255 };
 
     // cria a legenda do eixo x do histograma
     SDL_Surface* textLabelXSurface = TTF_RenderText_Blended(font, "Intensidade", 0, textColor);
@@ -520,8 +670,8 @@ int main(int argc, char *argv[]){
 
     SDL_FRect textLabelYRect = { 0, 0, textLabelYSurface->w, textLabelYSurface->h };
 
-    // Reduz as dimensoes da superficie da imagem para caber no retangulo menor criado, 
-    // assim a o texto de maior tamanho borrado sera convertido em um texto menor mais nitido
+    // Reduz as dimensões da imagem para caber no retângulo menor criado, 
+    // assim a o texto de maior tamanho borrado será convertido em um texto menor mais nítido
     textLabelYRect.w = textLabelYSurface->w / 3.5f;
     textLabelYRect.h = textLabelYSurface->h / 3.5f;
 
@@ -531,8 +681,19 @@ int main(int argc, char *argv[]){
 
     SDL_DestroySurface(textLabelYSurface);
 
+    // definir tamanho do botão e estados de pressionado e "hover" como falsos
+    Button toggleBtn = {{110, 420, 200, 50}, false, false};
+
+    bool showingEqualized = false;
     SDL_Event event;
     bool isRunning = true;
+
+    // variáveis para controlar qual janela deve ser atualizada
+    bool renderizarJanelaPrincipal = true;
+    bool renderizarJanelaSecundaria = true;
+    bool hover;
+    bool pressed;
+
     while (isRunning)
     {
         while (SDL_PollEvent(&event))
@@ -540,33 +701,79 @@ int main(int argc, char *argv[]){
             if (event.type == SDL_EVENT_QUIT)
             {
                 isRunning = false;
-            } else if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) // temporário (fechar uma janela encerra o programa)
-            {
+            } else if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED){ // fechar uma janela encerra o programa
                 isRunning = false;
+            } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                int mx = event.motion.x, my = event.motion.y;
+                hover = toggleBtn.hovered;
+                // verifica se o cursor está na posição (dentro) do botão
+                toggleBtn.hovered = (mx >= toggleBtn.rect.x && mx <= toggleBtn.rect.x+toggleBtn.rect.w &&
+                               my >= toggleBtn.rect.y && my <= toggleBtn.rect.y+toggleBtn.rect.h);
+                // se o estado de "hover" do botão mudou, atualiza a janela secundária
+                if (hover != toggleBtn.hovered){
+                    renderizarJanelaSecundaria = true;
+                }
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                pressed = toggleBtn.pressed;
+                // verifica se o cursor estiver no botão e se ele foi pressionado 
+                if (toggleBtn.hovered) toggleBtn.pressed = true;
+                // se o estado de pressionado do botão mudou, atualiza a janela secundária
+                if (pressed != toggleBtn.pressed){
+                    renderizarJanelaSecundaria = true;
+                }
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+                // se o botão de click do mouse foi solto e o estado do botão é pressionado e "hovered"
+                if (toggleBtn.pressed && toggleBtn.hovered) {
+                    showingEqualized = !showingEqualized;
+                    // destrói a textura da imagem e cria outra textura com base no estado anterior
+                    // da imagem, indicado pela variável showingEqualized
+                    SDL_DestroyTexture(imagem);
+                    if (showingEqualized)
+                        imagem = SDL_CreateTextureFromSurface(renderer, surfaceEqualized);
+                    else
+                        imagem = SDL_CreateTextureFromSurface(renderer, surface);
+                    // manda renderizar ambas as janelas
+                    renderizarJanelaPrincipal = true;
+                    renderizarJanelaSecundaria = true;
+                }
+                toggleBtn.pressed = false;
             }
         }
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        
-        // renderizar imagem na primeira janela
-        SDL_FRect dest = {0.0f, 0.0f, largura, altura};
-        SDL_RenderTexture(renderer, imagem, NULL, &dest);
+        if (renderizarJanelaPrincipal){
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            
+            // renderizar imagem na janela principal
+            SDL_FRect dest = {0.0f, 0.0f, largura, altura};
+            SDL_RenderTexture(renderer, imagem, NULL, &dest);
 
-        SDL_RenderPresent(renderer);
+            SDL_RenderPresent(renderer);
+            renderizarJanelaPrincipal = false;
+        }
 
-        SDL_SetRenderDrawColor(renderer2, 255, 255, 255, 255);
-        SDL_RenderClear(renderer2);
+        if (renderizarJanelaSecundaria){
+            SDL_SetRenderDrawColor(renderer2, 0, 0, 0, 255);
+            SDL_RenderClear(renderer2);
 
-        // renderizar histograma e textos informativos na segunda janela
-        createHistogram(surface);
-        analyzeImageInformation(surface, &data, font);
-        SDL_RenderTexture(renderer2, data.intensityTexture, NULL, &data.intensityRect);
-        SDL_RenderTexture(renderer2, data.deviationTexture, NULL, &data.deviationRect);
-        SDL_RenderTexture(renderer2, textLabelXTexture, NULL, &textLabelXRect);
-        SDL_RenderTextureRotated(renderer2, textLabelYTexture, NULL, &textLabelYRect, 270.0, NULL, SDL_FLIP_NONE);
-        SDL_RenderPresent(renderer2);
+            // renderizar histograma e textos informativos na janela secundária
+            // analisa a imagem mostrada na janela principal
+            if (showingEqualized == false){
+                createHistogram(surface);
+                analyzeImageInformation(surface, &data, font);
+            } else {
+                createHistogram(surfaceEqualized);
+                analyzeImageInformation(surfaceEqualized, &data, font);
+            }
+            SDL_RenderTexture(renderer2, data.intensityTexture, NULL, &data.intensityRect);
+            SDL_RenderTexture(renderer2, data.deviationTexture, NULL, &data.deviationRect);
+            SDL_RenderTexture(renderer2, textLabelXTexture, NULL, &textLabelXRect);
+            SDL_RenderTextureRotated(renderer2, textLabelYTexture, NULL, &textLabelYRect, 270.0, NULL, SDL_FLIP_NONE);
+            drawButton(&toggleBtn, showingEqualized ? "Equalizado" : "Original", font);
+            SDL_RenderPresent(renderer2);
+            renderizarJanelaSecundaria = false;
+        }
     }
-    // destruir textures, renderer e window da janela principal
+    // destruir textures, renderer e janela principal
     SDL_DestroyTexture(imagem);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
@@ -574,8 +781,13 @@ int main(int argc, char *argv[]){
     window = NULL;
     renderer = NULL;
 
-    // destruir surface (da imagem), textures, renderer e window da janela secundária
+    // destruir surfaces (da imagem RGBA, em escala de cinza e equalizada), 
+    // textures, renderer e janela secundária
+    SDL_DestroySurface(converted);
     SDL_DestroySurface(surface);
+    SDL_DestroySurface(surfaceEqualized);
+    SDL_DestroyTexture(textLabelXTexture);
+    SDL_DestroyTexture(textLabelYTexture);
     destroyData(&data);
     SDL_DestroyRenderer(renderer2);
     SDL_DestroyWindow(window2);

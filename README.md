@@ -1,9 +1,9 @@
 # O que é o projeto:
 
- Este projeto é uma aplicação gráfica desenvolvida em linguagem **C** utilizando a biblioteca **SDL3**, juntamente com suas extensões **SDL_image** e **SDL_ttf**, para manipulação de imagens e exibição de textos. O objetivo principal é permitir a análise visual de imagens em escala de cinza e realizar o cálculo e visualização do histograma de intensidade, da frequência de pixels e do desvio padrão da imagem.
+ Este projeto é uma aplicação gráfica desenvolvida em linguagem **C** utilizando a biblioteca **SDL3**, juntamente com suas extensões **SDL_image** e **SDL_ttf**, para manipulação de imagens e exibição de textos. O objetivo principal é permitir ao usuário realizar a equalização de imagens, analisar visualmente imagens em escala de cinza e calcular, além de exibir, o histograma de intensidade, a frequência dos pixels e o desvio padrão da imagem.
 
 A aplicação cria duas janelas:
-* **Janela principal** – fica do lado esquerdo e exibe a imagem carregada, seja na sua versão original ou após a equalização do histograma.
+* **Janela principal** – fica do lado esquerdo e exibe a imagem carregada, seja na sua versão original ou após a equalização da imagem.
 * **Janela secundária** – fica do lado direito e exibe o histograma da imagem, intensidade média e desvio padrão, além de um botão que permite o usuário alternar entre a imagem original e a versão equalizada.
 
 

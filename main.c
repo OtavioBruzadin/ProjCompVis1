@@ -684,7 +684,6 @@ int main(int argc, char *argv[]){
     // definir tamanho do botão e estados de pressionado e "hover" como falsos
     Button toggleBtn = {{110, 420, 200, 50}, false, false};
 
-    bool showingEqualized = false;
     SDL_Event event;
     bool isRunning = true;
 
@@ -693,6 +692,7 @@ int main(int argc, char *argv[]){
     bool renderizarJanelaSecundaria = true;
     bool hover;
     bool pressed;
+    bool showingEqualized = false;
 
     while (isRunning)
     {
@@ -737,6 +737,26 @@ int main(int argc, char *argv[]){
                     renderizarJanelaSecundaria = true;
                 }
                 toggleBtn.pressed = false;
+            // foi utilizado KEY_UP para evitar salvar várias vezes ao manter "s" pressionado
+            } else if (event.type == SDL_EVENT_KEY_UP){
+                if (event.key.key == SDLK_S){
+                    // salva a imagem da janela principal, verificando o valor de showingEqualized
+                    if (showingEqualized == false){
+                        if (!IMG_SavePNG(surface, "output_image.png")) {
+                            SDL_Log("Erro ao salvar a imagem original: %s", SDL_GetError());
+                            return SDL_APP_FAILURE;
+                        } else {
+                             SDL_Log("Imagem original salva com sucesso em output_image.png!");
+                        }
+                    } else {
+                        if (!IMG_SavePNG(surfaceEqualized, "output_image.png")) {
+                            SDL_Log("Erro ao salvar a imagem equalizada: %s", SDL_GetError());
+                            return SDL_APP_FAILURE;
+                        } else {
+                            SDL_Log("Imagem equalizada salva com sucesso em output_image.png!");
+                        }
+                    }
+                }
             }
         }
         if (renderizarJanelaPrincipal){

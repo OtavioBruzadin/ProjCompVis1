@@ -25,7 +25,7 @@ Baseado neste vetor, o histograma é criado, com o eixo **x** representando as e
 
 Durante esses processos, o programa continuamente processa eventos do usuário. Assim, se alguma ação for tomada, o renderizador vai limpar a tela, desenhar as imagens e os textos atualizados ao usuário.
 
-Além disso, se o usuário quiser salvar a imagem, é possível salvá-la em PNG segurando a tecla **“s”**.
+Além disso, se o usuário quiser salvar a imagem, é possível salvá-la em **PNG** segurando a tecla **“s”**.
 
 Por fim, quando o usuário encerra a aplicação, todos os recursos são liberados da memória e o programa é finalizado.
 

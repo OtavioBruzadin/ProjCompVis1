@@ -34,7 +34,7 @@ Por fim, quando o usuário encerra a aplicação, todos os recursos são liberad
 
 **Otávio:** Carregamento da imagem, verificação de formato e conversão para rgba, checagem para ver se está em escala de cinza e a conversão caso contrário e a criação da janela principal.
 
-**Pedro:** Construção do histograma e análise das informações, com exibição dos resultados na janela secundária.
+**Pedro:** Construção do histograma e análise das informações, com exibição dos resultados na janela secundária. (correção da utilização de texturas, evitando a criação e destruição sempre que o botão de equalização for apertado)
 
 **Gabriel:** Equalização da imagem e seu botão correspondente, renderização eficiente e alterações estéticas na janela secundária.
 

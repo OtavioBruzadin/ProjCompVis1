@@ -543,6 +543,7 @@ int main(int argc, char *argv[]){
     if (!TTF_Init()) {
         SDL_Log("Erro ao inicializar SDL_ttf: %s", SDL_GetError());
         return SDL_APP_FAILURE;
+        
     }
 
     // checar se o formato é compativel
@@ -694,6 +695,10 @@ int main(int argc, char *argv[]){
     bool pressed;
     bool showingEqualized = false;
 
+    // cria texturas para mostrar a imagem na janela principal
+    imagem = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_Texture* imagemEqualizada = SDL_CreateTextureFromSurface(renderer, surfaceEqualized);
+
     while (isRunning)
     {
         while (SDL_PollEvent(&event))
@@ -725,13 +730,6 @@ int main(int argc, char *argv[]){
                 // se o botão de click do mouse foi solto e o estado do botão é pressionado e "hovered"
                 if (toggleBtn.pressed && toggleBtn.hovered) {
                     showingEqualized = !showingEqualized;
-                    // destrói a textura da imagem e cria outra textura com base no estado anterior
-                    // da imagem, indicado pela variável showingEqualized
-                    SDL_DestroyTexture(imagem);
-                    if (showingEqualized)
-                        imagem = SDL_CreateTextureFromSurface(renderer, surfaceEqualized);
-                    else
-                        imagem = SDL_CreateTextureFromSurface(renderer, surface);
                     // manda renderizar ambas as janelas
                     renderizarJanelaPrincipal = true;
                     renderizarJanelaSecundaria = true;
@@ -763,9 +761,13 @@ int main(int argc, char *argv[]){
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
             
-            // renderizar imagem na janela principal
+            // renderizar imagem na janela principal com a imagem correta beseado na variável showingEqualized
             SDL_FRect dest = {0.0f, 0.0f, largura, altura};
-            SDL_RenderTexture(renderer, imagem, NULL, &dest);
+            if (showingEqualized == false){
+                SDL_RenderTexture(renderer, imagem, NULL, &dest);
+            } else {
+                SDL_RenderTexture(renderer, imagemEqualizada, NULL, &dest);
+            }
 
             SDL_RenderPresent(renderer);
             renderizarJanelaPrincipal = false;
@@ -795,6 +797,7 @@ int main(int argc, char *argv[]){
     }
     // destruir textures, renderer e janela principal
     SDL_DestroyTexture(imagem);
+    SDL_DestroyTexture(imagemEqualizada);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 

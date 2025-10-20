@@ -157,6 +157,7 @@ static bool isGreyScale(SDL_Surface* surface) {
     return isGrey;
 }
 
+
 SDL_Surface* convertToGrey(SDL_Surface* surface) {
     if (!surface) {
         SDL_Log("convertToGrey: superfície nula recebida.");
